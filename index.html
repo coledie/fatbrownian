@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brownian Motion: Thin vs Fat-Tailed Distributions</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            text-align: center;
+            margin-bottom: 30px;
+            opacity: 0.9;
+            font-size: 1.2em;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            min-width: 120px;
+        }
+        
+        label {
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        
+        select, input, button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            font-size: 14px;
+        }
+        
+        button {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        
+        button:hover {
+            transform: scale(1.05);
+        }
+        
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        
+        canvas {
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.7);
+        }
+        
+        .info-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .info-box {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #4ecdc4;
+        }
+        
+        .info-box h3 {
+            margin-top: 0;
+            color: #4ecdc4;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+        
+        .stat {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            flex: 1;
+            margin: 0 5px;
+        }
+        
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #4ecdc4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Brownian Motion Explorer</h1>
+        <p class="subtitle">Compare thin-tailed vs fat-tailed distributions in random walks</p>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="distribution">Distribution:</label>
+                <select id="distribution">
+                    <option value="normal">Normal (Gaussian)</option>
+                    <option value="uniform">Uniform</option>
+                    <option value="pareto">Pareto (Power Law)</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="steps">Steps:</label>
+                <input type="number" id="steps" value="1000" min="100" max="5000">
+            </div>
+            
+            <div class="control-group">
+                <label for="paths">Paths:</label>
+                <input type="number" id="paths" value="20" min="1" max="50">
+            </div>
+            
+            <div class="control-group">
+                <label>Action:</label>
+                <button onclick="simulate()">Run Simulation</button>
+            </div>
+        </div>
+        
+        <div class="canvas-container">
+            <canvas id="canvas" width="800" height="400"></canvas>
+        </div>
+        
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-value" id="maxDisp">-</div>
+                <div>Max Displacement</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="avgDisp">-</div>
+                <div>Average Final Value</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="variance">-</div>
+                <div>Variance</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="varOfVar">-</div>
+                <div>Kurtosis</div>
+            </div>
+        </div>
+        
+        <div class="info-panel">
+            <div class="info-box">
+                <h3>Thin-Tailed Distributions</h3>
+                <p><strong>Normal:</strong> Bell curve where most steps are near the mean, extreme values are very rare.</p>
+                <p><strong>Uniform:</strong> All values within range are equally likely. Has finite support (hard bounds).</p>
+                <p>These produce more predictable, confined random walks with occasional moderate excursions.</p>
+            </div>
+            
+            <div class="info-box">
+                <h3>Fat Tailed Distributions</h3>
+                <p><strong>Pareto (Power Law):</strong>Extreme values occur much more frequently than in normal distributions aas can be seen by the kurtosis</p>
+                <p>The "80-20 rule" distribution where rare large events dominate the outcomes.</p>
+                <p>These create wild, unpredictable walks with sudden large jumps that can completely change the trajectory.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Random number generators
+        function normalRandom(mean = 0, std = 1) {
+            const u = Math.random();
+            const v = Math.random();
+            const z = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+            return z * std + mean;
+        }
+        
+        function uniformRandom(min = -1, max = 1) {
+            return Math.random() * (max - min) + min;
+        }
+        
+        function paretoRandom(scale = 1, alpha = 1.5) {
+            const u = Math.random();
+            const sample = scale * Math.pow(1 - u, -1/alpha) - scale;
+            // Add random sign and scale down for visualization
+            return (Math.random() < 0.5 ? -1 : 1) * sample * 0.1;
+        }
+        
+        function getRandomStep(distribution) {
+            switch(distribution) {
+                case 'normal':
+                    return normalRandom(0, 1);
+                case 'uniform':
+                    return uniformRandom(-2, 2);
+                case 'pareto':
+                    return paretoRandom(1, 1.5);
+                default:
+                    return normalRandom(0, 1);
+            }
+        }
+        
+        function simulate() {
+            const distribution = document.getElementById('distribution').value;
+            const numSteps = parseInt(document.getElementById('steps').value);
+            const numPaths = parseInt(document.getElementById('paths').value);
+            
+            // Clear canvas
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            const paths = [];
+            const colors = [
+                '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57',
+                '#ff9ff3', '#54a0ff', '#5f27cd', '#00d2d3', '#ff9f43',
+                '#a55eea', '#26de81', '#fd79a8', '#fdcb6e', '#6c5ce7'
+            ];
+            
+            let maxDisplacement = 0;
+            let finalPositions = [];
+            let pathVariances = [];
+            
+            // Generate paths
+            for (let p = 0; p < numPaths; p++) {
+                const path = [{x: 0, y: 0}];
+                let position = 0;
+                let positions = [0]; // Track all positions for variance calculation
+                
+                for (let i = 1; i <= numSteps; i++) {
+                    const step = getRandomStep(distribution);
+                    position += step;
+                    path.push({x: i, y: position});
+                    positions.push(position);
+                }
+                
+                // Calculate variance for this path
+                const pathMean = positions.reduce((sum, pos) => sum + pos, 0) / positions.length;
+                const pathVar = positions.reduce((sum, pos) => sum + Math.pow(pos - pathMean, 2), 0) / positions.length;
+                
+                paths.push(path);
+                finalPositions.push(Math.abs(position));
+                pathVariances.push(pathVar);
+                maxDisplacement = Math.max(maxDisplacement, Math.abs(position));
+            }
+            
+            // Calculate bounds for scaling
+            const maxX = numSteps;
+            const maxY = Math.max(maxDisplacement * 1.2, 10);
+            const minY = -maxY;
+            
+            // Draw grid
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+            
+            // Vertical grid lines
+            for (let i = 0; i <= 10; i++) {
+                const x = (canvas.width * i) / 10;
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            // Horizontal grid lines
+            for (let i = 0; i <= 10; i++) {
+                const y = (canvas.height * i) / 10;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+            
+            // Draw center line
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 2;
+            const centerY = canvas.height / 2;
+            ctx.beginPath();
+            ctx.moveTo(0, centerY);
+            ctx.lineTo(canvas.width, centerY);
+            ctx.stroke();
+            
+            // Draw y-axis labels
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'left';
+            
+            // Draw scale labels on the right side
+            for (let i = 0; i <= 10; i++) {
+                const y = (canvas.height * i) / 10;
+                const value = maxY - (i / 10) * (2 * maxY); // Convert pixel position to actual value
+                
+                // Only draw labels for non-zero values or center line
+                if (Math.abs(value) > 0.01 || i === 5) {
+                    ctx.fillText(value.toFixed(1), canvas.width - 50, y + 4);
+                }
+            }
+            
+            // Draw paths
+            paths.forEach((path, pathIndex) => {
+                const color = colors[pathIndex % colors.length];
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                
+                path.forEach((point, i) => {
+                    const x = (point.x / maxX) * canvas.width;
+                    const y = canvas.height / 2 - (point.y / maxY) * (canvas.height / 2);
+                    
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                });
+                
+                ctx.stroke();
+                
+                // Draw end point
+                const lastPoint = path[path.length - 1];
+                const endX = (lastPoint.x / maxX) * canvas.width;
+                const endY = canvas.height / 2 - (lastPoint.y / maxY) * (canvas.height / 2);
+                
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(endX, endY, 4, 0, 2 * Math.PI);
+                ctx.fill();
+            });
+            
+            // Update statistics
+            const avgFinalPos = finalPositions.reduce((a, b) => a + b, 0) / finalPositions.length;
+            const variance = finalPositions.reduce((sum, pos) => sum + Math.pow(pos - avgFinalPos, 2), 0) / finalPositions.length;
+            
+            // Calculate kurtosis (fourth moment / variance^2 - 3 for excess kurtosis)
+            const fourthMoment = finalPositions.reduce((sum, pos) => sum + Math.pow(pos - avgFinalPos, 4), 0) / finalPositions.length;
+            const kurtosis = variance > 0 ? (fourthMoment / Math.pow(variance, 2)) - 3 : 0;
+            
+            document.getElementById('maxDisp').textContent = maxDisplacement.toFixed(2);
+            document.getElementById('avgDisp').textContent = avgFinalPos.toFixed(2);
+            document.getElementById('variance').textContent = variance.toFixed(2);
+            document.getElementById('varOfVar').textContent = kurtosis.toFixed(2);
+        }
+        
+        // Run initial simulation
+        simulate();
+        
+        // Add event listeners for real-time updates
+        document.getElementById('distribution').addEventListener('change', simulate);
+    </script>
+</body>
+</html>
