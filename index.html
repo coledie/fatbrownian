@@ -163,6 +163,14 @@
             </div>
             
             <div class="control-group">
+                <label for="updateRule">Update Rule:</label>
+                <select id="updateRule">
+                    <option value="arithmetic">Arithmetic (Additive)</option>
+                    <option value="geometric">Geometric (Multiplicative)</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
                 <label>Action:</label>
                 <button onclick="simulate()">Run Simulation</button>
             </div>
@@ -248,6 +256,7 @@
             const distribution = document.getElementById('distribution').value;
             const numSteps = parseInt(document.getElementById('steps').value);
             const numPaths = parseInt(document.getElementById('paths').value);
+            const updateRule = document.getElementById('updateRule').value;
             
             // Clear canvas
             ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
@@ -267,14 +276,26 @@
             // Generate paths
             for (let p = 0; p < numPaths; p++) {
                 const path = [{x: 0, y: 0}];
-                let position = 0;
-                let positions = [0]; // Track all positions for variance calculation
+                let position = updateRule === 'geometric' ? 1 : 0; // Start at 1 for geometric, 0 for arithmetic
+                let positions = [position]; // Track all positions for variance calculation
                 
                 for (let i = 1; i <= numSteps; i++) {
                     const step = getRandomStep(distribution);
-                    position += step;
-                    path.push({x: i, y: position});
-                    positions.push(position);
+                    
+                    if (updateRule === 'geometric') {
+                        // Geometric update: multiply by (1 + step)
+                        // For visualization, we'll use exponential form: position *= exp(step * scaling_factor)
+                        const scalingFactor = 0.1; // Scale down the step size for geometric
+                        position *= Math.exp(step * scalingFactor);
+                    } else {
+                        // Arithmetic update: add the step
+                        position += step;
+                    }
+                    
+                    // For geometric, we'll track log(position) for better visualization
+                    const visualPosition = updateRule === 'geometric' ? Math.log(position) : position;
+                    path.push({x: i, y: visualPosition});
+                    positions.push(visualPosition);
                 }
                 
                 // Calculate variance for this path
@@ -282,9 +303,9 @@
                 const pathVar = positions.reduce((sum, pos) => sum + Math.pow(pos - pathMean, 2), 0) / positions.length;
                 
                 paths.push(path);
-                finalPositions.push(Math.abs(position));
+                finalPositions.push(Math.abs(positions[positions.length - 1]));
                 pathVariances.push(pathVar);
-                maxDisplacement = Math.max(maxDisplacement, Math.abs(position));
+                maxDisplacement = Math.max(maxDisplacement, Math.abs(positions[positions.length - 1]));
             }
             
             // Calculate bounds for scaling
@@ -389,6 +410,7 @@
         
         // Add event listeners for real-time updates
         document.getElementById('distribution').addEventListener('change', simulate);
+        document.getElementById('updateRule').addEventListener('change', simulate);
     </script>
 </body>
 </html>
